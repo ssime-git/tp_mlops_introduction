@@ -48,6 +48,7 @@ if uploaded_file:
     st.write("Anomalies détectées:", predictions.sum())
 ```
 
+
 ## ÉTAPE 2 – Outil interne partagé
 
 ### Nouveaux besoins identifiés
@@ -168,71 +169,72 @@ Architecture dédiée évoluée avec pipeline ETL et versioning
 
 ```mermaid
 graph TD
-    subgraph "Zone DMZ"
-        LB[Load Balancer + SSL]
-        AUTH[Service Authentification]
+    UTILISATEURS[Techniciens + Équipes]
+    
+    subgraph "Zone Applications"
+        WEB_UI[Interface Web Simple]
+        API_ML[API Prédictions ML]
+        AUTH_SERVICE[Service Connexion]
     end
     
-    subgraph "Zone Production"
-        API_BLUE[API v2.1.0 - BLUE]
-        API_GREEN[API v2.0.5 - GREEN]
-        MODEL_REGISTRY[Registry Modèles]
+    subgraph "Zone Données"
+        DB_PROD[(Base Production)]
+        DB_LOGS[(Base Logs Audit)]
+        MODEL_FILES[Stockage Modèles]
     end
     
-    subgraph "Données"
-        DB_PROD[(DB Production)]
-        DB_AUDIT[(DB Audit)]
-        FEATURE_STORE[Feature Store]
+    subgraph "Surveillance"
+        MONITORING[Surveillance Système]
+        ALERTS[Alertes Automatiques]
+        HEALTH_CHECK[Vérification Santé]
     end
     
-    subgraph "Monitoring"
-        PROMETHEUS[Prometheus Metrics]
-        ALERTS[Alerting]
-        DRIFT_DETECTION[Monitoring Dérive]
+    subgraph "Déploiement"
+        VERSION_A[Version Actuelle v2.1]
+        VERSION_B[Version Test v2.2]
+        DEPLOY_AUTO[Déploiement Automatique]
+        GIT[Code Source Git]
     end
     
-    subgraph "CI/CD"
-        GITHUB[GitHub Actions]
-        TESTS[Tests Auto]
-        DEPLOY[Déploiement Blue/Green]
-    end
+    UTILISATEURS --> WEB_UI
+    WEB_UI --> AUTH_SERVICE
+    AUTH_SERVICE --> API_ML
     
-    USERS[Utilisateurs] --> LB
-    LB --> AUTH
-    AUTH --> API_BLUE
-    AUTH --> API_GREEN
+    API_ML --> MODEL_FILES
+    API_ML --> DB_PROD
+    API_ML --> DB_LOGS
     
-    API_BLUE --> MODEL_REGISTRY
-    API_GREEN --> MODEL_REGISTRY
+    MONITORING --> API_ML
+    MONITORING --> ALERTS
+    HEALTH_CHECK --> API_ML
     
-    API_BLUE --> DB_PROD
-    API_GREEN --> DB_PROD
+    GIT --> DEPLOY_AUTO
+    DEPLOY_AUTO --> VERSION_A
+    DEPLOY_AUTO --> VERSION_B
+    VERSION_A -.-> API_ML
+    VERSION_B -.-> API_ML
     
-    GITHUB --> TESTS --> DEPLOY
-    DEPLOY --> API_GREEN
-    
-    PROMETHEUS --> DRIFT_DETECTION
-    DRIFT_DETECTION --> ALERTS
+    MONITORING --> DEPLOY_AUTO
 ```
 
 ### Justifications techniques
 
-**Authentification granulaire** :
-- JWT tokens avec rôles (lecteur/admin)
-- Audit trail de tous les accès
-```python
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    start_time = time.time()
-    response = await call_next(request)
-    # Log: user, endpoint, duration, response
-    return response
-```
+**Interface sécurisée** : Connexion obligatoire avec nom d'utilisateur/mot de passe. Chaque action est enregistrée dans les logs d'audit.
 
-**Blue/Green Deployment** :
-- Zéro downtime lors des mises à jour
-- Test en conditions réelles sur GREEN
-- Bascule instantanée si validation OK
+**Déploiement sans interruption** :
+- Version actuelle continue de fonctionner
+- Nouvelle version testée en parallèle
+- Basculement automatique si tests OK
+- Retour arrière immédiat si problème
+
+**Surveillance automatique** :
+- Vérification que l'API répond correctement
+- Alerte par email si panne détectée
+- Surveillance de la qualité des prédictions
+
+**Base de données séparées** :
+- Une pour les résultats de production
+- Une pour les logs de sécurité (qui a fait quoi, quand)
 
 **Monitoring métier** :
 - Dérive détectée par comparaison distributions
@@ -280,11 +282,9 @@ Architecture microservices avec orchestration complète
 
 ### Transitions justifiées
 
-**1→2** : Besoin de partage = nécessité d'une API réseau
-
-**2→3** : Volume/criticité = pipeline robuste + traçabilité
-
-**3→4** : Industrialisation = automatisation + sécurité + fiabilité
+* **1→2** : Besoin de partage = nécessité d'une API réseau
+* **2→3** : Volume/criticité = pipeline robuste + traçabilité
+* **3→4** : Industrialisation = automatisation + sécurité + fiabilité
 
 ### Technologies utilisées (conforme masterclass)
 
@@ -311,4 +311,6 @@ Architecture microservices avec orchestration complète
 * **Security** : Principe moindre privilège + logs d'audit
 * **Reliability** : SLA 99.9% avec mécanismes failover
 
-Cette évolution respecte la philosophie MLOps : partir simple et complexifier seulement quand le besoin métier le justifie, en maintenant toujours reproductibilité et observabilité.
+> Cette évolution respecte **la philosophie MLOps** :
+>
+> *Partir simple et complexifier seulement quand le besoin métier le justifie, en maintenant toujours reproductibilité et observabilité.*
